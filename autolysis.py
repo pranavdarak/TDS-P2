@@ -46,8 +46,10 @@ def get_llm_response(prompt):
         print("Sending request to LLM...")
         response = openai.ChatCompletion.create(
             model=MODEL,
-            messages=[{"role": "system", "content": "You are an AI analyst."},
-                      {"role": "user", "content": prompt}],
+            messages=[
+                {"role": "system", "content": "You are an AI data analyst."},
+                {"role": "user", "content": prompt}
+            ],
             max_tokens=800
         )
         print("LLM Raw Response:", response)
@@ -60,125 +62,117 @@ def get_llm_response(prompt):
         return "LLM analysis failed."
 
 # Validate command-line arguments
-if len(sys.argv) != 2:
-    print("Usage: python autolysis.py <dataset.csv>")
-    sys.exit(1)
+def validate_args():
+    if len(sys.argv) != 2:
+        print("Usage: python autolysis.py <dataset.csv>")
+        sys.exit(1)
 
 # Load the dataset
-csv_file = sys.argv[1]
-if not os.path.exists(csv_file):
-    print(f"File {csv_file} not found.")
-    sys.exit(1)
+def load_dataset(csv_file):
+    if not os.path.exists(csv_file):
+        print(f"File {csv_file} not found.")
+        sys.exit(1)
 
-try:
-    data = pd.read_csv(csv_file, encoding='ISO-8859-1')
-except Exception as e:
-    print(f"Error loading dataset: {e}")
-    sys.exit(1)
+    try:
+        data = pd.read_csv(csv_file, encoding='ISO-8859-1')
+    except Exception as e:
+        print(f"Error loading dataset: {e}")
+        sys.exit(1)
 
-# Generate enhanced summary statistics
-summary_stats = data.describe(include="all").transpose()
-missing_values = data.isnull().sum()
-missing_percentage = (missing_values / data.shape[0]) * 100
-correlation_matrix = data.corr(numeric_only=True)
+    return data
 
-# Handle outliers and boxplots for distributions
-outliers = {}
-for column in data.select_dtypes(include=[np.number]).columns:
-    Q1 = data[column].quantile(0.25)
-    Q3 = data[column].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
-    outliers[column] = ((data[column] < lower_bound) | (data[column] > upper_bound)).sum()
+# Generate summary statistics
+def generate_summary(data):
+    summary_stats = data.describe(include="all").transpose()
+    missing_values = data.isnull().sum()
+    correlation_matrix = data.corr(numeric_only=True)
+    return summary_stats, missing_values, correlation_matrix
 
-# Define the output directory based on the dataset name
-dataset_name = os.path.splitext(os.path.basename(csv_file))[0]
-output_dir = os.path.join(dataset_name)
-
-# Create the output directory if it doesn't exist
-os.makedirs(output_dir, exist_ok=True)
-
-# Save correlation matrix heatmap
-plt.figure(figsize=(10, 8))
-sns.heatmap(correlation_matrix, annot=True, fmt=".2f", cmap="coolwarm", cbar=True)
-plt.title("Correlation Matrix")
-plt.savefig(os.path.join(output_dir, "correlation_matrix.png"))
-plt.close()
-
-# Generate distribution plots for numerical columns and box plots for outliers
-for column in data.select_dtypes(include=[np.number]).columns:
-    plt.figure(figsize=(8, 6))
-    sns.histplot(data[column].dropna(), kde=True, bins=30, color="blue")
-    plt.title(f"Distribution of {column}")
-    plt.xlabel(column)
-    plt.ylabel("Frequency")
-    plt.savefig(os.path.join(output_dir, f"{column}_distribution.png"))
+# Save visualizations
+def save_visualizations(data, correlation_matrix, output_dir):
+    # Correlation matrix heatmap
+    plt.figure(figsize=(10, 8))
+    sns.heatmap(correlation_matrix, annot=True, fmt=".2f", cmap="coolwarm", cbar=True)
+    plt.title("Correlation Matrix")
+    plt.savefig(os.path.join(output_dir, "correlation_matrix.png"))
     plt.close()
 
-    # Boxplot to visualize outliers
-    plt.figure(figsize=(8, 6))
-    sns.boxplot(x=data[column])
-    plt.title(f"Boxplot of {column}")
-    plt.savefig(os.path.join(output_dir, f"{column}_boxplot.png"))
-    plt.close()
+    # Generate distribution plots for numerical columns
+    for column in data.select_dtypes(include=[np.number]).columns:
+        plt.figure(figsize=(8, 6))
+        sns.histplot(data[column].dropna(), kde=True, bins=30, color="blue")
+        plt.title(f"Distribution of {column}")
+        plt.xlabel(column)
+        plt.ylabel("Frequency")
+        plt.savefig(os.path.join(output_dir, f"{column}_distribution.png"))
+        plt.close()
 
-# Prepare data for LLM
-sample_data = data.head(5).to_dict(orient="records")
-llm_prompt = f"""
-You are an AI data analyst. Here's the dataset summary:
-- Number of Rows: {data.shape[0]}
-- Number of Columns: {data.shape[1]}
-- Columns: {list(data.columns)}
-- Data Types: {data.dtypes.to_dict()}
-- Missing Values: {missing_values.to_dict()}
-- Missing Value Percentages: {missing_percentage.to_dict()}
-- Outliers per Column: {outliers}
-- Sample Data: {sample_data}
+# Prepare prompt for LLM based on dataset analysis
+def prepare_llm_prompt(data, missing_values):
+    sample_data = data.head(5).to_dict(orient="records")
+    llm_prompt = f"""
+    You are an AI data analyst. Here's the dataset summary:
+    - Number of Rows: {data.shape[0]}
+    - Number of Columns: {data.shape[1]}
+    - Columns: {list(data.columns)}
+    - Data Types: {data.dtypes.to_dict()}
+    - Missing Values: {missing_values.to_dict()}
+    - Sample Data: {sample_data}
 
-Your task:
-1. Analyze the dataset.
-2. Highlight important trends, outliers, and correlations.
-3. Suggest potential applications or interpretations of the data.
-4. Provide actionable insights.
-
-Be concise and professional.
-"""
-
-llm_analysis = get_llm_response(llm_prompt)
+    Your task:
+    1. Analyze the dataset.
+    2. Highlight important trends, outliers, and correlations.
+    3. Suggest potential applications or interpretations of the data.
+    4. Provide actionable insights.
+    """
+    return llm_prompt
 
 # Generate README.md content
-markdown_content = f"""
-# Automated Analysis Report
+def generate_readme(data, missing_values, llm_analysis, output_dir):
+    markdown_content = f"""
+    # Automated Analysis Report
 
-## Dataset Overview
-- **Rows**: {data.shape[0]}
-- **Columns**: {data.shape[1]}
-- **Missing Values**:
-{missing_values.to_string()}
-- **Missing Value Percentages**:
-{missing_percentage.to_string()}
-- **Outliers**:
-{outliers}
+    ## Dataset Overview
+    - **Rows**: {data.shape[0]}
+    - **Columns**: {data.shape[1]}
+    - **Missing Values**:
+    {missing_values.to_string()}
 
-## Key Insights
-{llm_analysis}
+    ## Key Insights
+    {llm_analysis}
 
-## Visualizations
-### Correlation Matrix
-![Correlation Matrix](correlation_matrix.png)
+    ## Visualizations
+    ### Correlation Matrix
+    ![Correlation Matrix](correlation_matrix.png)
 
-### Distributions
-"""
+    ### Distributions
+    """
+    for column in data.select_dtypes(include=[np.number]).columns:
+        markdown_content += f"![{column} Distribution]({column}_distribution.png)\n"
 
-# Add distribution plots to the README content
-for column in data.select_dtypes(include=[np.number]).columns:
-    markdown_content += f"![{column} Distribution]({column}_distribution.png)\n"
-    markdown_content += f"![{column} Boxplot]({column}_boxplot.png)\n"
+    readme_path = os.path.join(output_dir, "README.md")
+    with open(readme_path, "w") as f:
+        f.write(markdown_content)
 
-# Save README.md inside the output directory
-readme_path = os.path.join(output_dir, "README.md")
-with open(readme_path, "w") as f:
-    f.write(markdown_content)
+# Main function to orchestrate the tasks
+def main():
+    validate_args()
+    csv_file = sys.argv[1]
+    data = load_dataset(csv_file)
+    summary_stats, missing_values, correlation_matrix = generate_summary(data)
 
-print(f"Analysis complete. Outputs saved in {output_dir}/README.md and PNG files.")
+    dataset_name = os.path.splitext(os.path.basename(csv_file))[0]
+    output_dir = os.path.join(dataset_name)
+    os.makedirs(output_dir, exist_ok=True)
+
+    save_visualizations(data, correlation_matrix, output_dir)
+
+    llm_prompt = prepare_llm_prompt(data, missing_values)
+    llm_analysis = get_llm_response(llm_prompt)
+
+    generate_readme(data, missing_values, llm_analysis, output_dir)
+
+    print(f"Analysis complete. Outputs saved in {output_dir}/README.md and PNG files.")
+
+if __name__ == "__main__":
+    main()
