@@ -11,7 +11,6 @@
 #   "numpy",
 #   "scipy",
 #   "scikit-learn",
-#   "sklearn",
 # ]
 # ///
 
