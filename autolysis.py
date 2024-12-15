@@ -12,27 +12,27 @@
 # ]
 # ///
 
-import sys
+import json
 import os
-import httpx
-from sklearn.ensemble import IsolationForest
-from sklearn.cluster import KMeans
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import r2_score, mean_squared_error
-import numpy as np
 import re
+import subprocess
+import sys
+import ipykernel
+import chardet
+import httpx
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import seaborn as sns
-import chardet
-import matplotlib.pyplot as plt
-import chardet
 from dateutil import parser
-import subprocess
-import json
-
-
+from sklearn.cluster import KMeans
+from sklearn.ensemble import IsolationForest
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error, r2_score
+matplotlib.use('Agg') 
 # Environment variable for AI Proxy token
-AIPROXY_TOKEN = os.environ["AIPROXY_TOKEN"]
+AIPROXY_TOKEN = os.environ.get("AIPROXY_TOKEN")
+#AIPROXY_TOKEN = os.environ["eyJhbGciOiJIUzI1NiJ9.eyJlbWFpbCI6IjIyZjEwMDA2NTNAZHMuc3R1ZHkuaWl0bS5hYy5pbiJ9.H1a95nycCe7z5uLsF5U0mIeQsR4yHvcjtQo76CR5bV4"]
 if not AIPROXY_TOKEN:
     raise EnvironmentError("AIPROXY_TOKEN is not set. Please set it before running the script.")
 
