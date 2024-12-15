@@ -10,6 +10,7 @@
 #   "openai",
 #   "numpy",
 #   "scipy",
+#   "python-dotenv",
 # ]
 # ///
 
