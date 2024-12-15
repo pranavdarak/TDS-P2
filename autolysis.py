@@ -1,15 +1,15 @@
 # /// script
 # requires-python = ">=3.11"
 # dependencies = [
-#   "httpx",
-#   "pandas",
-#   "numpy",
-#   "matplotlib",
 #   "seaborn",
-#   "ipykernel"
+#   "pandas",
+#   "matplotlib",
+#   "httpx",
 #   "chardet",
-#   "scikit-learn",
-#   "tabulate",
+#   "ipykernel",
+#   "openai",
+#   "numpy",
+#   "scipy",
 # ]
 # ///
 
