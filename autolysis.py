@@ -9,6 +9,7 @@
 #   "chardet",
 #   "scikit-learn",
 #   "tabulate",
+#   "ipykernel",
 #   "scikit-learn"
 # ]
 # ///
