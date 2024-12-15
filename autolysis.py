@@ -31,7 +31,7 @@ from sklearn.cluster import KMeans
 from sklearn.ensemble import IsolationForest
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error, r2_score
-matplotlib.use('Agg') 
+
 # Environment variable for AI Proxy token
 AIPROXY_TOKEN = os.environ.get("AIPROXY_TOKEN")
 #AIPROXY_TOKEN = os.environ["eyJhbGciOiJIUzI1NiJ9.eyJlbWFpbCI6IjIyZjEwMDA2NTNAZHMuc3R1ZHkuaWl0bS5hYy5pbiJ9.H1a95nycCe7z5uLsF5U0mIeQsR4yHvcjtQo76CR5bV4"]
