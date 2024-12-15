@@ -46,10 +46,8 @@ def get_llm_response(prompt):
         print("Sending request to LLM...")
         response = openai.ChatCompletion.create(
             model=MODEL,
-            messages=[
-                {"role": "system", "content": "You are an AI analyst."},
-                {"role": "user", "content": prompt}
-            ],
+            messages=[{"role": "system", "content": "You are an AI analyst."},
+                      {"role": "user", "content": prompt}],
             max_tokens=800
         )
         print("LLM Raw Response:", response)
@@ -78,10 +76,21 @@ except Exception as e:
     print(f"Error loading dataset: {e}")
     sys.exit(1)
 
-# Generate summary statistics
+# Generate enhanced summary statistics
 summary_stats = data.describe(include="all").transpose()
 missing_values = data.isnull().sum()
+missing_percentage = (missing_values / data.shape[0]) * 100
 correlation_matrix = data.corr(numeric_only=True)
+
+# Handle outliers and boxplots for distributions
+outliers = {}
+for column in data.select_dtypes(include=[np.number]).columns:
+    Q1 = data[column].quantile(0.25)
+    Q3 = data[column].quantile(0.75)
+    IQR = Q3 - Q1
+    lower_bound = Q1 - 1.5 * IQR
+    upper_bound = Q3 + 1.5 * IQR
+    outliers[column] = ((data[column] < lower_bound) | (data[column] > upper_bound)).sum()
 
 # Define the output directory based on the dataset name
 dataset_name = os.path.splitext(os.path.basename(csv_file))[0]
@@ -97,7 +106,7 @@ plt.title("Correlation Matrix")
 plt.savefig(os.path.join(output_dir, "correlation_matrix.png"))
 plt.close()
 
-# Generate distribution plots for numerical columns
+# Generate distribution plots for numerical columns and box plots for outliers
 for column in data.select_dtypes(include=[np.number]).columns:
     plt.figure(figsize=(8, 6))
     sns.histplot(data[column].dropna(), kde=True, bins=30, color="blue")
@@ -105,6 +114,13 @@ for column in data.select_dtypes(include=[np.number]).columns:
     plt.xlabel(column)
     plt.ylabel("Frequency")
     plt.savefig(os.path.join(output_dir, f"{column}_distribution.png"))
+    plt.close()
+
+    # Boxplot to visualize outliers
+    plt.figure(figsize=(8, 6))
+    sns.boxplot(x=data[column])
+    plt.title(f"Boxplot of {column}")
+    plt.savefig(os.path.join(output_dir, f"{column}_boxplot.png"))
     plt.close()
 
 # Prepare data for LLM
@@ -116,6 +132,8 @@ You are an AI data analyst. Here's the dataset summary:
 - Columns: {list(data.columns)}
 - Data Types: {data.dtypes.to_dict()}
 - Missing Values: {missing_values.to_dict()}
+- Missing Value Percentages: {missing_percentage.to_dict()}
+- Outliers per Column: {outliers}
 - Sample Data: {sample_data}
 
 Your task:
@@ -138,6 +156,10 @@ markdown_content = f"""
 - **Columns**: {data.shape[1]}
 - **Missing Values**:
 {missing_values.to_string()}
+- **Missing Value Percentages**:
+{missing_percentage.to_string()}
+- **Outliers**:
+{outliers}
 
 ## Key Insights
 {llm_analysis}
@@ -152,6 +174,7 @@ markdown_content = f"""
 # Add distribution plots to the README content
 for column in data.select_dtypes(include=[np.number]).columns:
     markdown_content += f"![{column} Distribution]({column}_distribution.png)\n"
+    markdown_content += f"![{column} Boxplot]({column}_boxplot.png)\n"
 
 # Save README.md inside the output directory
 readme_path = os.path.join(output_dir, "README.md")
